@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Gemini API Chatbot</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Dosis:wght@200..800&display=swap"
+            rel="stylesheet">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+            integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+            crossorigin="anonymous" referrerpolicy="no-referrer" />
+        <style>
+        body { font-family: "Dosis", serif; }
+        input:-webkit-autofill,
+        input:-webkit-autofill:focus
+        input:-webkit-autofill:hover
+        {
+    -webkit-text-fill-color: #fff !important;
+    -webkit-box-shadow: 0 0 0px 1000px #2F2F2F inset;
+    transition: background-color 5000s ease-in-out 0s;
+}
+    .chatMessage{
+        background-color: #303030;
+        padding: 6px 8px;
+        padding-bottom: 10px;
+        border-radius: 5px;
+        color: #fff;
+        font-size: 15px;
+        width: fit-content;
+        min-width: 250px;
+    }
+    div#chatList {
+        max-width: 1000px;
+        margin: 0 auto;
+        width: 80%;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        height: 100%;
+        overflow-y: auto;
+    }
+    .myMessage{
+        float: right;
+    }
+    .botMessage {
+    float: left;
+    background: #121211;
+}
+
+.chatMessage span {
+    font-size: 11px;
+    color: #a5a4a2;
+    line-height: 0;
+    margin: 0;
+}
+.chatMessage p {
+    margin: 0;
+    line-height: 1;
+    font-size: 16px;
+}
+.chatMessageText {
+    display: flex ;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 10px;
+}
+.chatMessageText i{
+    cursor: pointer;
+}
+    </style>
+    </head>
+    <body class="bg-[#212121] h-screen">
+        <div class="flex flex-col h-screen w-full">
+            <h1 class="w-full text-center text-white py-4">Text to Speach
+                Chatbot</h1>
+            <div id="chatList" class="flex-1">
+
+            </div>
+            <form id="chatForm"
+                class="bg-[#2F2F2F] flex w-[80%] max-w-[1000px] mx-auto p-2 mb-3 rounded-md ">
+                <input
+                    class="bg-[#2F2F2F] h-full w-full border-none outline-none text-white"
+                    type="text"
+                    id="userInput" placeholder="Type your question">
+                <button class="p-2 rounded-md bg-[#141414] text-white"
+                    id="sendButton">Send</button>
+            </form>
+
+        </div>
+
+        <script
+            src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
+            integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <script>
+        const userInput = document.getElementById('userInput');
+        const chatForm = document.getElementById('chatForm');
+        const sendButton = document.getElementById('sendButton');
+        const chatOutput = document.getElementById('chatList');
+        const synth = window.speechSynthesis;
+
+
+        function speak(text) { 
+            if (synth.speaking) {
+                synth.cancel(); // Stop the current speech
+                console.log('Stopped ongoing speech synthesis.');
+            } 
+            const utterThis = new SpeechSynthesisUtterance(text);   
+            utterThis.onend = (event) => {
+                console.log('SpeechSynthesisUtterance.onend');
+                $('.speachButton').removeClass('fa-circle-pause') 
+                $('.speachButton').addClass('fa-volume-high')
+            };       
+            utterThis.onerror = (event) => {
+                console.error('SpeechSynthesisUtterance.onerror', event);
+            };       
+            synth.speak(utterThis);
+        }
+
+
+
+        async function getGeminiResponse(prompt) {
+            try {
+                const response = await fetch('/gemini-response', {
+                    method: 'POST',
+                    headers: {
+                       'Content-Type': 'application/json',
+                   },
+                   body: JSON.stringify({ prompt }) ,
+                });
+                if (!response.ok) {
+                     const message = await response.text();
+                     throw new Error(`HTTP error! status: ${response.status} ${message}`);
+                 }
+                const data = await response.json();
+                return data.response;
+            } catch (error) {
+                console.error('Error fetching Gemini response:', error);
+                return "Sorry, something went wrong with the Gemini API.";
+            }
+         }
+
+
+         chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault()
+            const userText = userInput.value.trim();
+            if (userText === '') return;
+            $('#sendButton').text('Generating response..').attr('disabled',true)
+            $('#chatList').append(`<div class="chatMessage myMessage"><span>My</span> <div class="chatMessageText"> <p>${userText}</p><i class="fa-solid speachButton fa-volume-high"></i></div> </div>`)
+            userInput.value = '';
+           const geminiResponse = await getGeminiResponse(userText); 
+            $('#chatList').append(`<div class="chatMessage botMessage"><span>Bot</span> <div class="chatMessageText"> <p>${geminiResponse}</p><i class="fa-solid speachButton fa-circle-pause"></i></div></div>`)
+            $('#sendButton').text('Send').attr('disabled',false)
+            speak(geminiResponse);
+        });
+
+        $(document).on('click','.speachButton',function(){
+            let text = $(this).parent().find('p').text();
+            if($(this).hasClass('fa-volume-high')){
+                $(this).addClass('fa-circle-pause') 
+                $(this).removeClass('fa-volume-high') 
+                speak(text);
+            }else{
+                if (synth.speaking) {
+                    synth.cancel(); // Stop the current speech
+                  
+                } 
+                $(this).removeClass('fa-circle-pause') 
+                $(this).addClass('fa-volume-high')
+            }
+          
+        })
+    </script>
+    </body>
+</html>
