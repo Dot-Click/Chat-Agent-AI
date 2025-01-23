@@ -87,6 +87,9 @@
                     class="bg-[#2F2F2F] h-full w-full border-none outline-none text-white"
                     type="text"
                     id="userInput" placeholder="Type your question">
+                <button id="micButton" class="text-white px-2" type="button">
+                    <i class="fa-solid fa-microphone"></i>
+                </button>
                 <button class="p-2 rounded-md bg-[#141414] text-white"
                     id="sendButton">Send</button>
             </form>
@@ -103,26 +106,73 @@
         const sendButton = document.getElementById('sendButton');
         const chatOutput = document.getElementById('chatList');
         const synth = window.speechSynthesis;
+        const micButton = document.getElementById('micButton')
 
 
-        function speak(text) { 
+         // Speech Recognition Setup
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let isListening = false;
+
+    if(SpeechRecognition){
+        recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+            console.log('Speech recognition started')
+            micButton.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
+
+        };
+         recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            userInput.value = transcript;
+         };
+         recognition.onend = () =>{
+            micButton.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+             console.log("Speech recognition end")
+         };
+
+         recognition.onerror = (event) => {
+            console.error('Speech recognition error',event.error)
+         }
+    }else{
+      micButton.style.display = 'none';
+      console.log("Speech recognition is not supported")
+    }
+
+    micButton.addEventListener('click', () => {
+        if(recognition){
+             if(!isListening){
+                 recognition.start()
+                isListening = true
+            }else{
+                 recognition.stop()
+                isListening= false
+            }
+        }
+
+      });
+        
+
+
+    function speak(text) {
             if (synth.speaking) {
                 synth.cancel(); // Stop the current speech
                 console.log('Stopped ongoing speech synthesis.');
-            } 
-            const utterThis = new SpeechSynthesisUtterance(text);   
+            }
+            const utterThis = new SpeechSynthesisUtterance(text);
             utterThis.onend = (event) => {
                 console.log('SpeechSynthesisUtterance.onend');
-                $('.speachButton').removeClass('fa-circle-pause') 
+                $('.speachButton').removeClass('fa-circle-pause')
                 $('.speachButton').addClass('fa-volume-high')
-            };       
+            };
             utterThis.onerror = (event) => {
                 console.error('SpeechSynthesisUtterance.onerror', event);
-            };       
+            };
             synth.speak(utterThis);
         }
-
-
 
         async function getGeminiResponse(prompt) {
             try {
@@ -153,11 +203,23 @@
             $('#sendButton').text('Generating response..').attr('disabled',true)
             $('#chatList').append(`<div class="chatMessage myMessage"><span>My</span> <div class="chatMessageText"> <p>${userText}</p><i class="fa-solid speachButton fa-volume-high"></i></div> </div>`)
             userInput.value = '';
-           const geminiResponse = await getGeminiResponse(userText); 
+           const geminiResponse = await getGeminiResponse(userText);
             $('#chatList').append(`<div class="chatMessage botMessage"><span>Bot</span> <div class="chatMessageText"> <p>${geminiResponse}</p><i class="fa-solid speachButton fa-circle-pause"></i></div></div>`)
             $('#sendButton').text('Send').attr('disabled',false)
             speak(geminiResponse);
         });
+        // $(document).on('click', '.speachButton', function() {
+        //     const textToSpeak = $(this).closest('.chatMessageText').find('p').text();
+        //     if($(this).hasClass('fa-volume-high')){
+        //         $(this).removeClass('fa-volume-high')
+        //         $(this).addClass('fa-circle-pause')
+        //         speak(textToSpeak);
+        //     }else{
+        //          $(this).removeClass('fa-circle-pause')
+        //         $(this).addClass('fa-volume-high')
+        //         synth.cancel()
+        //     }
+        // });
 
         $(document).on('click','.speachButton',function(){
             let text = $(this).parent().find('p').text();
